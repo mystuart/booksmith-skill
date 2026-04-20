@@ -26,6 +26,8 @@ description: |
 | `illustration.md` | 插图规范：生图工具、风格模板、比例、压缩 | 改插图风格时 |
 | `references/examples.md` | 各 Phase 的 Input/Output 示例 | 改示例时 |
 | `references/eval-schema.md` | Eval 格式参考（grading.json 等 schema） | 改评估格式时 |
+| `references/extend-schema.md` | 偏好系统 JSON Schema 完整定义 | 改偏好字段时 |
+| `EXTEND.md` | Booksmith Extend 偏好系统 — 用户级跨项目偏好记忆 | 理解偏好机制时 |
 | `evals/evals.json` | 测试用例定义 | 改测试用例时 |
 
 **执行时必须读取前 5 个文件。** 其余为开发调试用。
@@ -64,6 +66,19 @@ Phase 7  交付
 > 直接回复修改项即可，没问题的我直接开始。
 
 **快捷模式**：用户指令信息充分时跳过确认直接执行。
+
+**关键词快捷模式**：用户指令中出现以下词汇时，自动推断参数，无需逐项确认：
+
+| 用户关键词 | 推断参数 |
+|-----------|---------|
+| 「手册」「操作手册」「指南」「菜谱」 | 出版风格：Handbook |
+| 「AI 大模型」「LLM」「GPT」「Claude」 | 出版风格：O'Reilly（默认 AI/技术类） |
+| 「学术」「论文」「研究报告」 | 出版风格：Academic |
+| 「8-12 章」「精简」「薄」 | 篇幅：精简（8-12 章） |
+| 「15+」「详尽」「厚」 | 篇幅：详尽（15+ 章） |
+| 「插图」「配图」「有图」 | 插图：是 |
+
+快捷模式下仍展示确认列表，用户可直接修改任何项。
 
 **参数默认值**：
 - 目标读者：小白
@@ -245,12 +260,20 @@ for each chapter in 大纲顺序:
 **排版参数**：`layout.md`
 **插图参数**：`illustration.md`
 
+## 格式优先建议
+
+**执行 HTML 组装前**，如果检测到手稿文件存在明显的 Markdown 格式问题（如粗体标点 `**你好,**`、中英间距不当），**主动建议用户先跑 `baoyu-format-markdown` skill 格式化手稿**，再进行排版。具体判断标准见 `layout.md`「格式优先建议」章节。
+
+此为建议性提示，不阻塞流程——用户选择直接排版时照做。
+
 ## 执行流程
 
-1. 排版自检（对照 layout.md 对齐自检清单）
-2. 如需插图：规划数量和位置 → 生成锚定图确认 → 批量生成 → 下载压缩
-3. HTML 组装：封面 → 目录 → 逐章 → 插图 → 末尾引导
-4. PDF 生成：Chrome headless 转换
+1. 格式优先检查（如有 `baoyu-format-markdown` 可用，提示用户是否要先格式化）
+2. 排版自检（对照 layout.md 对齐自检清单）
+3. 如需插图：规划数量和位置 → 生成锚定图确认 → **prompt 先写入 `illustrations/prompts/`** → 批量生成 → 下载压缩
+4. **HTML 组装前**：检查输出 HTML 是否已存在，如存在则 rename 为 `*-backup-YYYYMMDD-HHMMSS.html` 再写新文件
+5. HTML 组装：封面 → 目录 → 逐章 → 插图 → 末尾引导
+6. PDF 生成：Chrome headless 转换
 
 ---
 

@@ -197,9 +197,12 @@ Phase 1 的每个调研 Agent **必须以真正独立的方式运行**，每个 
 执行流程：
 1. 规划插图数量和位置（见 illustration.md 数量表）
 2. 定风格：根据主题组装 STYLE_PREFIX（见 illustration.md 主色调方案）
-3. 锚定确认：生成 1 张锚定图 → 展示给用户确认
-4. 批量生成：确认后串行生成其余插图
-5. 下载压缩（见 illustration.md 压缩规则）
+3. **prompt 先写入文件**：`illustrations/prompts/00-style-anchor.md`（锚定图 prompt）和 `illustrations/prompts/01-N-content.md`（其余插图 prompt）
+   - 每个文件记录：`插图编号 | 位置 | 内容描述 | 比例 | 完整 prompt`
+   - prompt 写完后再生成，不要边写边调
+4. 锚定确认：生成 1 张锚定图 → 展示给用户确认
+5. 批量生成：确认后串行生成其余插图
+6. 下载压缩（见 illustration.md 压缩规则）
 
 ### HTML 组装
 
