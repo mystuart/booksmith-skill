@@ -31,10 +31,11 @@ Phase 7  交付
 
 ```
 booksmith/
-├── SKILL.md                         # 主流程（7 个 Phase）
+├── LICENSE                          # MIT License
+├── README.md                        # 说明文档
+├── SKILL.md                         # 主流程（Phase 0–7 + 1.5 检查点）
 ├── layout.md                        # 排版规范（配色、字体、间距、页码）
 ├── illustration.md                  # 插图规范（生图工具、风格模板、压缩）
-├── README.md                        # 说明文档
 ├── evals/
 │   └── evals.json                   # 测试用例定义
 └── references/
@@ -53,9 +54,16 @@ booksmith/
 ├── SKILL.md
 ├── layout.md
 ├── illustration.md
+├── evals/
+│   └── evals.json
 └── references/
-    └── style-guide.md
+    ├── style-guide.md
+    ├── phase-instructions.md
+    ├── examples.md
+    └── eval-schema.md
 ```
+
+> 直接将整个项目目录复制到 `~/.claude/skills/` 即可，无需挑选文件。
 
 ## 使用
 
@@ -90,10 +98,6 @@ booksmith/
 | [nuwa-skill](https://github.com/alchaincyf/nuwa-skill) | 阶段间 Review 检查点、独立质量验证（子 agent 审查非自我评估）、双 Agent 精炼、自包含项目目录 |
 | [darwin-skill](https://github.com/alchaincyf/darwin-skill) | 棘轮思维（质量不达标则迭代，上限 2 次，不无限打磨） |
 
-## License
-
-MIT
-
 ## 安全说明
 
 本 Skill 涉及外部调用时的数据处理原则：
@@ -113,3 +117,7 @@ MIT
 - PDF 转换在本地完成，路径固定为 `~/Books/[english-slug]/`
 - 不执行来源不明的 JavaScript
 - 不访问需要认证的网页（调研使用 WebSearch，而非模拟登录）
+
+## License
+
+MIT

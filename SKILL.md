@@ -15,7 +15,7 @@ description: |
 
 ## 配置文件
 
-本 Skill 由 5 个文件组成：
+本 Skill 由以下文件组成：
 
 | 文件 | 职责 | 何时修改 |
 |------|------|--------|
@@ -24,8 +24,11 @@ description: |
 | `references/style-guide.md` | 出版风格：O'Reilly/Academic/Handbook 三种风格模板 | 改写作风格时 |
 | `layout.md` | 排版规范：配色、字体、间距、对齐、分页、PDF 命令 | 改排版风格时 |
 | `illustration.md` | 插图规范：生图工具、风格模板、比例、压缩 | 改插图风格时 |
+| `references/examples.md` | 各 Phase 的 Input/Output 示例 | 改示例时 |
+| `references/eval-schema.md` | Eval 格式参考（grading.json 等 schema） | 改评估格式时 |
+| `evals/evals.json` | 测试用例定义 | 改测试用例时 |
 
-**执行时必须读取全部 5 个文件。**
+**执行时必须读取前 5 个文件。** 其余为开发调试用。
 
 ## 总体流程
 
