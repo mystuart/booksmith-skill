@@ -1,6 +1,6 @@
 # Booksmith Extend — 偏好 Schema
 
-本文件定义 `~/.hermes/booksmith-preferences.json` 的完整 JSON Schema。
+本文件定义 `~/.claude/booksmith-preferences.json` 的完整 JSON Schema。
 
 ---
 
@@ -55,8 +55,7 @@
         "code_theme":        { "type": "string",  "default": "github-light", "description": "代码高亮主题" },
         "tip_style":         { "type": "string",  "enum": ["bordered", "filled", "icon"], "default": "bordered" },
         "color_scheme":      { "type": "string",  "description": "自定义配色方案名" },
-        "page_margin":        { "type": "string",  "description": "自定义页边距，如 '2cm'" },
-        "custom_css":         { "type": "string",  "description": "追加在 layout.md CSS 之后的自定义 CSS" }
+        "page_margin":        { "type": "string",  "description": "自定义页边距，如 '2cm'" }
       },
       "additionalProperties": false
     },
@@ -139,7 +138,7 @@
 ```
 用户 project.json  ← 最高优先级（项目级覆盖）
     ↓
-~/.hermes/booksmith-preferences.json  ← 中间优先级（偏好积累）
+~/.claude/booksmith-preferences.json  ← 中间优先级（偏好积累）
     ↓
 SKILL.md 硬编码默认值  ← 最低优先级（兜底）
 ```
@@ -154,7 +153,7 @@ SKILL.md 硬编码默认值  ← 最低优先级（兜底）
 |------|---------|
 | `brand` | 涉及用户个人信息，写入前必须展示给用户确认 |
 | `preferred_style` | 必须是有效枚举值，否则拒绝写入 |
-| `layout_preferences.custom_css` | 不允许 `@page` 规则（PDF 分页在 layout.md 中统一控制） |
+| `layout_preferences.color_scheme` | 如提供，必须是 layout.md 中已定义的配色快捷方案名 |
 | `exclude_from_preferences` | 只允许包含顶级字段名（不含嵌套路径） |
 | `books_history` | 最多保留 20 条记录，超出时删除最早的 |
 
@@ -173,7 +172,7 @@ with open("references/extend-schema.md") as f:
     schema = json.loads(f.read().split("```json")[1].split("```")[0])
 
 # 验证偏好文件
-with open(os.path.expanduser("~/.hermes/booksmith-preferences.json")) as f:
+with open(os.path.expanduser("~/.claude/booksmith-preferences.json")) as f:
     prefs = json.load(f)
     jsonschema.validate(prefs, schema)
 ```

@@ -25,12 +25,10 @@ description: |
 | `layout.md` | 排版规范：配色、字体、间距、对齐、分页、PDF 命令 | 改排版风格时 |
 | `illustration.md` | 插图规范：生图工具、风格模板、比例、压缩 | 改插图风格时 |
 | `references/examples.md` | 各 Phase 的 Input/Output 示例 | 改示例时 |
-| `references/eval-schema.md` | Eval 格式参考（grading.json 等 schema） | 改评估格式时 |
 | `references/extend-schema.md` | 偏好系统 JSON Schema 完整定义 | 改偏好字段时 |
 | `EXTEND.md` | Booksmith Extend 偏好系统 — 用户级跨项目偏好记忆 | 理解偏好机制时 |
-| `evals/evals.json` | 测试用例定义 | 改测试用例时 |
 
-**执行时必须读取前 5 个文件。** 其余为开发调试用。
+**执行时必须读取前 5 个文件。其余为开发调试用。**
 
 ## 总体流程
 
@@ -113,7 +111,7 @@ Phase 7  交付
   "style": "oreilly|academic|handbook|custom",
   "chapters_planned": 12,
   "has_illustrations": false,
-  "brand": { "name": "", "cta": "" },
+  "brand": { "name": "", "cta": "", "wechat": "", "website": "" },
   "status": "initialized",
   "created": "YYYY-MM-DD",
   "current_phase": 0,
@@ -262,18 +260,26 @@ for each chapter in 大纲顺序:
 
 ## 格式优先建议
 
-**执行 HTML 组装前**，如果检测到手稿文件存在明显的 Markdown 格式问题（如粗体标点 `**你好,**`、中英间距不当），**主动建议用户先跑 `baoyu-format-markdown` skill 格式化手稿**，再进行排版。具体判断标准见 `layout.md`「格式优先建议」章节。
+**排版前**，如果检测到手稿文件存在明显的 Markdown 格式问题（如粗体标点 `**你好,**`、中英间距不当），**主动建议用户先格式化手稿**，再进行排版。具体判断标准见 `layout.md`「格式优先建议」章节。
 
 此为建议性提示，不阻塞流程——用户选择直接排版时照做。
 
 ## 执行流程
 
-1. 格式优先检查（如有 `baoyu-format-markdown` 可用，提示用户是否要先格式化）
-2. 排版自检（对照 layout.md 对齐自检清单）
+1. 格式优先检查（如手稿存在格式问题，提示用户是否要先格式化）
+2. 排版自检（对照 layout.md 排版规范）
 3. 如需插图：规划数量和位置 → 生成锚定图确认 → **prompt 先写入 `illustrations/prompts/`** → 批量生成 → 下载压缩
-4. **HTML 组装前**：检查输出 HTML 是否已存在，如存在则 rename 为 `*-backup-YYYYMMDD-HHMMSS.html` 再写新文件
-5. HTML 组装：封面 → 目录 → 逐章 → 插图 → 末尾引导
-6. PDF 生成：Chrome headless 转换
+4. **PDF 生成：调用 `scripts/booksmith-typst.py` 脚本**（Typst 排版引擎，原生 CJK，自动书签，单遍出 TOC）
+   ```bash
+   python3 scripts/booksmith-typst.py \
+     ~/Books/[project-dir] --output [output-name].pdf
+   ```
+   - 自动读取 `project.json` 获取书名
+   - 自动合并 `manuscript/*.md`（按 ch00-ch10 → appendix-a/b 排序）
+   - 解析 `layout.md` 提取配色、字号、边距作为样式源
+   - Typst 原生 CJK 混排（无需字体候选表、无 CJK 检测 hack）
+   - 生成封面 + 可点击 TOC（带页码）+ PDF 书签 + 页码
+   - 若 Typst 不可用，回退到 `scripts/booksmith-rl.py`（ReportLab 版）
 
 ---
 
@@ -322,9 +328,9 @@ for each chapter in 大纲顺序:
 ## 排版铁律
 
 - 所有内容元素左右对齐，不允许宽度不一
-- 图片 max-width 不超过正文区域
-- 页脚不显示文件路径
-- 打印时保留背景色（`print-color-adjust: exact`）
+- 图片不超过正文区域宽度
+- 页脚只显示页码，不显示文件路径
+- 打印时保留背景色（tip 框、代码块、表头等）
 
 ## 命名铁律
 
@@ -355,8 +361,7 @@ for each chapter in 大纲顺序:
 
 ### 排版层面
 - 不使用花哨的渐变、阴影、多彩卡片
-- 不在 HTML 中内嵌 base64 图片（文件过大）
-- 不让章节标题孤行出现在页面底部（CSS `page-break-after: avoid`）
+- 不让章节标题孤行出现在页面底部
 
 ## 断点续写机制
 

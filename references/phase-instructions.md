@@ -40,6 +40,7 @@ Phase 1 的每个调研 Agent **必须以真正独立的方式运行**，每个 
 
 输出要求：
 - 写入 [项目目录]/research/0X-[方向简述].md
+- 每个 agent 至少 5 条信源（4-5 个 agent 合计 ≥ 20 条）
 - 每条信息标注来源 URL 和信源等级（S/A/B/C）
 - 区分一手（官方文档/原始论文）vs 二手（博客/社区总结）
 - 关键事实必须 ≥2 个独立信源交叉验证
@@ -51,7 +52,7 @@ Phase 1 的每个调研 Agent **必须以真正独立的方式运行**，每个 
 - B（从业者）：技术博客、教程、社区高赞回答
 - C（社区）：论坛讨论、问答、评论
 
-信息源黑名单：不使用百度百科、百度知道。
+信息源黑名单（铁律，不可违反）：不使用百度百科、百度知道。
 ```
 
 **主 Agent 在子 agent 调度时的职责**：
@@ -72,15 +73,17 @@ Phase 1 的每个调研 Agent **必须以真正独立的方式运行**，每个 
 
 所有 Agent 完成后，暂停展示调研质量摘要：
 
+（表格中 Agent 编号对应 `research/` 目录中的文件序号：Agent 1 → `01-*.md`，Agent 2 → `02-*.md`，以此类推）
+
 ```
 ┌──────────────────┬──────────┬──────────┬──────────────────────────┐
-│ Agent            │ 来源数量  │ S/A 占比 │ 关键发现                  │
+│ # │ 文件         │ 来源数量  │ S/A 占比 │ 关键发现                  │
 ├──────────────────┼──────────┼──────────┼──────────────────────────┤
-│ 1 核心概念       │ X篇      │ XX%      │ ...                       │
-│ 2 技术细节       │ X篇      │ XX%      │ ...                       │
-│ 3 案例分析       │ X篇      │ XX%      │ ...                       │
-│ 4 最佳实践       │ X篇      │ XX% ⚠️   │ ...                       │
-│ 5 资源汇总       │ X篇      │ XX%      │ ...                       │
+│ 1 │ 01-core.md   │ X篇      │ XX%      │ ...                       │
+│ 2 │ 02-tech.md   │ X篇      │ XX%      │ ...                       │
+│ 3 │ 03-cases.md  │ X篇      │ XX%      │ ...                       │
+│ 4 │ 04-best.md   │ X篇      │ XX% ⚠️   │ ...                       │
+│ 5 │ 05-res.md    │ X篇      │ XX%      │ ...                       │
 ├──────────────────┼──────────┼──────────┼──────────────────────────┤
 │ 总信源           │ XX       │ S/A XX%  │ 达标 ✅ / 不达标 ⚠️        │
 │ 信息缺口         │ Agent X  │          │ [缺口描述]                │
@@ -204,35 +207,30 @@ Phase 1 的每个调研 Agent **必须以真正独立的方式运行**，每个 
 5. 批量生成：确认后串行生成其余插图
 6. 下载压缩（见 illustration.md 压缩规则）
 
-### HTML 组装
-
-将所有章节手稿按顺序组装为 HTML：
-1. 封面页
-2. 目录页
-3. 逐章内容（从 manuscript/chXX.md 读取，转为 HTML）
-4. 插图插入（章节之间，见 illustration.md 嵌入规则）
-5. 末尾引导页（如有品牌引导）
-
 ### PDF 生成
 
+**使用 booksmith-typst.py 脚本**（Typst 排版引擎，原生 CJK，自动书签，单遍出 TOC）：
+
 ```bash
-"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
-  --headless=new \
-  --disable-gpu \
-  --no-sandbox \
-  --print-to-pdf="[项目目录]/ebook.pdf" \
-  "file:///[HTML文件路径].html"
+python3 scripts/booksmith-typst.py \
+  ~/Books/[project-dir] --output [output-name].pdf
 ```
 
-**注意**：
-- HTML 中引用的图片必须和 HTML 在同一目录（用相对路径）
-- 插图文件放在 `[项目目录]/illustrations/`
+脚本内部完成：project.json 读取 → manuscript/*.md 合并排序 → layout.md 解析（配色、字号、边距）→ Typst 编译 PDF（封面 + 可点击 TOC 带页码 + PDF 书签 + 原生 CJK 混排）。
+
+若 Typst 不可用（`pip install typst`），可回退到 ReportLab 版：
+
+```bash
+python3 scripts/booksmith-rl.py \
+  ~/Books/[project-dir] --output [output-name].pdf
+```
 
 ### Phase 5 失败处理
 
 | 失败场景 | 处理方式 |
 |---------|---------|
-| Chrome headless 生成失败 | 检查 Chrome 路径、HTML 语法、图片路径；失败 2 次后提示用户手动打开 HTML 另存为 PDF |
+| CJK 字体缺失 | 检查系统是否安装 Noto Sans CJK 或 Songti SC；脚本会自动 fallback |
+| Markdown 解析失败 | 检查 manuscript/*.md 文件格式是否符合 booksmith 约定（`# §01 "Title"`） |
 
 ---
 
@@ -344,7 +342,7 @@ Phase 1 的每个调研 Agent **必须以真正独立的方式运行**，每个 
 | 2 | 用户反复否决样板章（>3 次） | 暂停，请用户提供一段「理想风格」的参考文本 |
 | 3 | 定向补充搜索无结果 | 基于已有调研材料写，标注「此处数据待补充」 |
 | 4 | 质量验证不通过（2 次迭代后） | 标注薄弱章节和维度，继续交付而非无限循环 |
-| 5 | Chrome headless 生成失败 | 检查 Chrome 路径、HTML 语法、图片路径；失败 2 次后提示用户手动打开 HTML 另存为 PDF |
+| 5 | PDF 生成失败 | 检查 `typst` 是否安装（`pip install typst`）、layout.md 格式、manuscript/*.md 编码；检查系统 CJK 字体；回退到 `booksmith-rl.py` |
 | 6 | 精炼 Agent 建议冲突 | 展示两方建议让用户选择，不自行决定 |
 
 ---

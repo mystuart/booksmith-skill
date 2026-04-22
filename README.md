@@ -10,7 +10,7 @@
 - **独立质量验证** — 子 agent 审查内容质量，不自我评估
 - **双 Agent 精炼** — 内容审查 + 排版审查并行，出版前最后一道关
 - **AI 插图生成** — MiniMax image-01 / GLM 图像生成 / Seedream API 三选一
-- **统一排版** — HTML 模板 + Chrome headless 转 PDF
+- **统一排版** — Typst 排版引擎，原生 CJK 混排，自动书签与目录
 - **自包含项目** — 所有产物在一个目录内，可独立分发
 
 ## 流程
@@ -31,18 +31,17 @@ Phase 7  交付
 
 ```
 booksmith/
+├── EXTEND.md                        # 偏好系统
 ├── LICENSE                          # MIT License
 ├── README.md                        # 说明文档
 ├── SKILL.md                         # 主流程（Phase 0–7 + 1.5 检查点）
 ├── layout.md                        # 排版规范（配色、字体、间距、页码）
 ├── illustration.md                  # 插图规范（生图工具、风格模板、压缩）
-├── evals/
-│   └── evals.json                   # 测试用例定义
 └── references/
     ├── style-guide.md               # 出版风格（O'Reilly/Academic/Handbook）
     ├── phase-instructions.md        # 各 Phase 详细执行指令和 Agent 模板
     ├── examples.md                  # 关键 Phase 的 Input/Output 示例
-    └── eval-schema.md               # Eval 格式参考（grading.json 等 schema）
+    └── extend-schema.md             # 偏好系统 JSON Schema 完整定义
 ```
 
 ## 安装
@@ -54,13 +53,12 @@ booksmith/
 ├── SKILL.md
 ├── layout.md
 ├── illustration.md
-├── evals/
-│   └── evals.json
+├── EXTEND.md
 └── references/
     ├── style-guide.md
     ├── phase-instructions.md
     ├── examples.md
-    └── eval-schema.md
+    └── extend-schema.md
 ```
 
 > 直接将整个项目目录复制到 `~/.claude/skills/` 即可，无需挑选文件。
@@ -104,7 +102,7 @@ booksmith/
 
 | 操作 | 数据发送范围 | 说明 |
 |------|------------|------|
-| PDF 生成（Chrome headless） | 仅本地 | HTML 在本地转换为 PDF，不上传任何数据 |
+| PDF 生成（Typst） | 仅本地 | Typst 在本地编译 PDF，不上传任何数据 |
 | 插图生成（MiniMax/GLM/Seedream API） | 仅 prompt | 只发送图像描述文本，不发送用户内容或书稿 |
 | 调研 Agent 搜索 | 仅搜索词 | WebSearch 只发送搜索 query，不发送文件内容 |
 
@@ -113,10 +111,10 @@ booksmith/
 - `~/.ssh`、`~/.aws` 等敏感目录
 - 书稿完整文本内容
 
-**Chrome headless 安全注意**：
-- PDF 转换在本地完成，路径固定为 `~/Books/[english-slug]/`
-- 不执行来源不明的 JavaScript
-- 不访问需要认证的网页（调研使用 WebSearch，而非模拟登录）
+**Typst 编译安全注意**：
+- PDF 编译在本地完成，路径固定为 `~/Books/[english-slug]/`
+- Typst 不执行外部脚本，不访问网络
+- 字体从系统目录读取，不加载远程资源
 
 ## License
 

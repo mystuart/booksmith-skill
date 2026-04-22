@@ -8,6 +8,7 @@ description: |
 
 # Booksmith Extend — 用户偏好系统
 
+> ⚠️ Intended design — not yet integrated into SKILL.md execution flow.
 > 每本书都在学习你。下次写书，应该更快、更像你。
 
 ## 核心概念
@@ -17,7 +18,7 @@ Booksmith 在两个层面存储信息：
 | 层面 | 存储位置 | 内容 | 生命周期 |
 |------|---------|------|---------|
 | **项目层** | `~/Books/[slug]/project.json` | 单本书的参数（风格、篇幅、读者） | 随书存在 |
-| **用户偏好层** | `~/.hermes/booksmith-preferences.json` | 跨项目的个人写作偏好 | 永久积累 |
+| **用户偏好层** | `~/.claude/booksmith-preferences.json` | 跨项目的个人写作偏好 | 永久积累 |
 
 偏好层会让 Booksmith 一次比一次更懂你——你的常用风格、你的排版偏好、你的品牌信息。
 
@@ -30,7 +31,7 @@ Booksmith 在两个层面存储信息：
 每次 Phase 0 启动时：
 
 ```
-1. 读取 ~/.hermes/booksmith-preferences.json
+1. 读取 ~/.claude/booksmith-preferences.json
 2. 读取 ~/Books/[slug]/project.json
 3. project.json 覆盖 preferences.json（即项目级参数优先）
 4. 未在 project.json 中指定的项 → 回退到 preferences.json 的值
@@ -49,7 +50,7 @@ Booksmith 在两个层面存储信息：
 
 **用户主动更新**（任何时候）：
 
-用户说「以后的书都这样排版」「记住我这个风格偏好」→ 立即更新 `~/.hermes/booksmith-preferences.json`。
+用户说「以后的书都这样排版」「记住我这个风格偏好」→ 立即更新 `~/.claude/booksmith-preferences.json`。
 
 ### 偏好字段一览
 
@@ -57,6 +58,7 @@ Booksmith 在两个层面存储信息：
 {
   "preferred_style": "oreilly | academic | handbook | custom",
   "target_reader_default": "小白 | 有基础 | 专业人士",
+  "preferred_chapter_length": "short | medium | long  // 影响 project.json 的 chapters_planned：short→8-10章，medium→10-12章，long→15+章",
   "illustration_default": true | false,
   "brand": { "name": "...", "cta": "...", "wechat": "..." },
   "layout_preferences": { "font_scale": 1.0, "chapter_gap": "medium", ... },
@@ -101,18 +103,18 @@ Booksmith 在两个层面存储信息：
 
 用户可以随时：
 
-- 「查看我的书籍偏好」→ 读取并展示 `~/.hermes/booksmith-preferences.json`
+- 「查看我的书籍偏好」→ 读取并展示 `~/.claude/booksmith-preferences.json`
 - 「修改偏好设置」→ 展示当前值 → 用户修改 → 写入文件
 - 「清除偏好」→ 重置为默认状态（保留空文件，仅含默认字段）
 
 ## 与其他 Skill 的协作
 
-### 与 baoyu-format-markdown
+### 与格式化工具
 
-偏好系统不直接调用 `baoyu-format-markdown`，但通过 `layout_preferences` 提供格式默认值。
+偏好系统通过 `layout_preferences` 提供格式默认值。
 Phase 5 格式优先检查时，优先使用用户偏好的格式参数而非硬编码默认值。
 
-### 与 baoyu-article-illustrator
+### 与插图工具
 
 插图偏好（`preferred_image_style`）在插图规划阶段作为默认参数。
 用户风格偏好变化时（通过 Phase 5 锚定确认），同步更新 `preferred_image_style`。
@@ -120,11 +122,11 @@ Phase 5 格式优先检查时，优先使用用户偏好的格式参数而非硬
 ## 文件位置
 
 ```
-~/.hermes/booksmith-preferences.json   ← 用户偏好（gitignored）
+~/.claude/booksmith-preferences.json   ← 用户偏好（gitignored）
 ```
 
-> 注意：偏好文件不应提交到 Git，应在 `~/.gitignore` 或 equivalent 中排除：
+> 注意：偏好文件不应提交到 Git，应在 `~/.gitignore` 中排除：
 > ```
 > # Booksmith user preferences
-> .hermes/booksmith-preferences.json
+> .claude/booksmith-preferences.json
 > ```

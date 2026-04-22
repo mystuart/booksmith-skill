@@ -359,7 +359,7 @@ sips --resampleWidth ${WIDTH} "input.png" \
 ### 文件组织
 
 ```
-插图文件放在 HTML 同目录，用相对路径引用。
+插图文件放在项目目录的 illustrations/ 文件夹，手稿中用相对路径引用。
 命名：img1.jpg, img2.jpg, ...（按插入顺序编号）
 ```
 
@@ -367,7 +367,23 @@ sips --resampleWidth ${WIDTH} "input.png" \
 
 ## 嵌入规则
 
-### HTML 标签
+### Markdown 图片语法（Typst / 当前方案）
+
+在手稿 Markdown 中直接使用标准图片语法：
+
+```markdown
+<!-- 标准配图（80% 宽度） -->
+![人与 AI 协作编程的流程示意图](../illustrations/img1.jpg)
+
+<!-- 横幅图（100% 宽度） -->
+![火箭发射代表部署上线](../illustrations/img2.jpg){.banner}
+```
+
+Typst 转换器会将其转为 `#figure(image(...), caption: ...)` ，横幅图自动 100% 宽度。
+
+图片路径相对于手稿文件位置（`manuscript/chXX.md`），所以 `../illustrations/img1.jpg` 指向项目根目录下的 `illustrations/` 文件夹。
+
+### HTML 标签（旧方案，已弃用）
 
 ```html
 <!-- 标准配图 -->
@@ -379,20 +395,12 @@ sips --resampleWidth ${WIDTH} "input.png" \
 
 ### 插入位置
 
-插在章节 `</div>` 闭合标签之后、下一个 `<div class="chapter">` 之前：
-
-```html
-</div>  <!-- 上一章结束 -->
-
-<img class="ebook-img" src="img3.jpg" alt="描述">
-
-<!-- ========== 下一章 ========== -->
-<div class="chapter">
-```
+插在章节之间或章节内合适的自然断点。在手稿中直接写图片行即可，无需额外标记。
 
 ### alt 文字
 
 每张图都要有简短的 alt 描述，用于：
+- 图片 caption（Typst `#figure` 的 `caption` 参数）
 - 无障碍（屏幕阅读器）
 - 图片加载失败时的回退文字
 - 格式：动词 + 名词，如"人与 AI 协作编程"、"火箭发射代表部署上线"
