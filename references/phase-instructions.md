@@ -58,7 +58,7 @@ Phase 1 的每个调研 Agent **必须以真正独立的方式运行**，每个 
 **主 Agent 在子 agent 调度时的职责**：
 1. 准备每个子 agent 的 context（主题、搜索词、项目目录路径）
 2. 同时发起所有子 agent（并行）
-3. 等待所有子 agent 完成
+3. **轮询检查每个子 agent 的输出文件**（见下方「输出文件校验」）
 4. 汇总各子 agent 的调研质量（来源数量、S/A 占比）
 5. 进入 Phase 1.5 展示 Review 表格
 
@@ -66,6 +66,31 @@ Phase 1 的每个调研 Agent **必须以真正独立的方式运行**，每个 
 - 调研文件已写入 `research/` 目录
 - 每个文件包含 ≥ 5 个信源
 - 关键事实有交叉验证
+
+**输出文件校验（必须执行）**：
+
+所有子 agent 返回后，主 Agent 立即检查输出文件是否存在：
+
+```bash
+# 检查所有预期输出文件
+for file in research/01-*.md research/02-*.md ...; do
+  if [[ -f "$file" ]]; then
+    lines=$(wc -l < "$file")
+    echo "$file: EXISTS ($lines lines)"
+  else
+    echo "$file: MISSING ⚠️"
+  fi
+done
+```
+
+**缺失处理规则**：
+
+| 场景 | 处理方式 |
+|------|---------|
+| 文件存在但 < 20 行 | 文件过小，视为失败，重新派发该子 agent |
+| 文件缺失 | 立即重新派发该方向子 agent |
+| 同一子 agent 连续失败 2 次 | 跳过该方向，在 Phase 1.5 展示「信息缺口：XXX」，不无限重试 |
+| 超过 3 个方向失败 | 暂停，告知用户降低调研范围或补充信息源 |
 
 ---
 
