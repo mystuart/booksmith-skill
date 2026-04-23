@@ -278,9 +278,9 @@ def convert_md_to_typst(md_text: str, colors: dict | None = None) -> str:
         # --- Code blocks ---
         if stripped.startswith("```"):
             if in_code:
-                # Close code block
+                # Close code block — escape content for Typst raw block
                 code_text = "\n".join(code_buf)
-                output.append(f"```{code_lang}\n{code_text}\n```")
+                output.append(f"```{code_lang}\n{_escape_typst(code_text)}\n```")
                 in_code = False
                 code_buf = []
                 code_lang = ""
