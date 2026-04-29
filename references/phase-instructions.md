@@ -89,6 +89,7 @@ done
 |------|---------|
 | 文件存在但 < 20 行 | 文件过小，视为失败，重新派发该子 agent |
 | 文件缺失 | 立即重新派发该方向子 agent |
+| 子 agent 超时无响应（300s 后仍无输出） | 主 Agent 直接接管该方向，基于已有上下文（含本地源码/预扫描结果）手动完成调研文件写入，不再重试子 agent |
 | 同一子 agent 连续失败 2 次 | 跳过该方向，在 Phase 1.5 展示「信息缺口：XXX」，不无限重试 |
 | 超过 3 个方向失败 | 暂停，告知用户降低调研范围或补充信息源 |
 
@@ -138,15 +139,11 @@ done
 - **不读全部已完成章节**（context 限制）。写第 N 章时：
   - 必读：outline.md + anchor-sample.md + glossary.md + 最近 2-3 章手稿
   - 可选：更早的章节仅在需要引用具体内容时读取
-- **术语追踪**：通过 glossary.md 而非全文扫描判断术语是否已定义
+- **术语追踪**：通过 glossary.md 而非全文扫描判断术语是否已定义。写新章节时只读 glossary 而非全文扫描，每章写完后更新 glossary.md 新增本章节定义的术语
 - **叙事递进**：每章必须在前面章节的基础上深化，而非平行并列
 - **核心论点贯穿**：全书 1-3 个核心论点必须逐章推进，不能中途丢失
 
-**上下文累积规则：**
-- Phase 3 写作时：只读取当前章 + 前 2 章手稿 + 大纲摘要（不读全部已完成章节）
-- 术语追踪：维护一个 `manuscript/glossary.md`，记录已定义术语和首次出现的章节号。写新章节时只读 glossary 而非全文扫描
-- Phase 4 验证时：子 agent 每次只审 3-4 章，分批审查
-- 每章写完后：更新 glossary.md，新增本章节定义的术语
+> Phase 4 验证时子 agent 每次只审 3-4 章，分批审查。
 
 ---
 
@@ -163,6 +160,8 @@ done
 ### 4b. 独立质量审查（子 agent）
 
 **spawn 独立子 agent**，带完整手稿执行审查：
+
+> 注意：审查全稿可能超出 context 窗口。子 agent 应分批审查——每次读取 3-4 章，逐批完成后再换下一批。
 
 ```
 你的任务：审查一本技术书的手稿质量。
@@ -214,7 +213,9 @@ done
 
 ### 排版规范
 
-**所有排版参数详见 `layout.md`。** 从 layout.md 读取 CSS 参数和排版自检清单。
+**所有排版参数详见 `layout.md`。排版脚本从 layout.md 读取配色定义、版面风格、字号、边距等参数。**
+
+> 注意：layout.md 使用自然语言定义排版参数，各排版引擎（Typst / ReportLab）按需解析。不要将其视为 CSS 文件。
 
 ### 插图
 
@@ -237,11 +238,35 @@ done
 **使用 booksmith-typst.py 脚本**（Typst 排版引擎，原生 CJK，自动书签，单遍出 TOC）：
 
 ```bash
+# 默认风格（从 layout.md 读取 layout_style）
 python3 scripts/booksmith-typst.py \
   ~/Books/[project-dir] --output [output-name].pdf
+
+# 强制指定版面风格（覆盖 layout.md 配置）
+python3 scripts/booksmith-typst.py \
+  ~/Books/[project-dir] --output [output-name].pdf --style modern
+
+# 保存 .typ 源码用于调试
+python3 scripts/booksmith-typst.py \
+  ~/Books/[project-dir] --save-typ debug.typ
 ```
 
-脚本内部完成：project.json 读取 → manuscript/*.md 合并排序 → layout.md 解析（配色、字号、边距）→ Typst 编译 PDF（封面 + 可点击 TOC 带页码 + PDF 书签 + 原生 CJK 混排）。
+脚本内部完成：project.json 读取 → manuscript/*.md 合并排序 → layout.md 解析（配色、版面风格、字号、边距）→ Typst 编译 PDF（封面 + 可点击 TOC 带页码 + PDF 书签 + 原生 CJK 混排）。
+
+**版面风格选择**：
+
+| 风格 | 适用场景 | 正文字体 | 首行缩进 | 行距 |
+|------|---------|---------|---------|------|
+| classic | 文学、人文、通识 | Noto Serif SC | 2em | 1.8em |
+| modern（默认） | 技术书、科普、商业 | Noto Sans SC | 0em | 1.7em |
+| academic | 论文、研究报告 | Noto Serif SC | 1.5em | 1.6em |
+| minimal | 设计类、画册、轻阅读 | Noto Sans SC | 0em | 1.9em |
+
+在 `layout.md` 中配置：
+```yaml
+layout_style: modern    # classic | modern | academic | minimal
+code_theme: light       # light | dark
+```
 
 若 Typst 不可用（`pip install typst`），可回退到 ReportLab 版：
 
@@ -254,8 +279,12 @@ python3 scripts/booksmith-rl.py \
 
 | 失败场景 | 处理方式 |
 |---------|---------|
-| CJK 字体缺失 | 检查系统是否安装 Noto Sans CJK 或 Songti SC；脚本会自动 fallback |
+| CJK 字体缺失 | 检查系统是否安装 Noto Sans CJK / Noto Serif CJK / JetBrains Mono；macOS: `brew install font-noto-sans-cjk-sc font-noto-serif-cjk-sc font-jetbrains-mono` |
 | Markdown 解析失败 | 检查 manuscript/*.md 文件格式是否符合 booksmith 约定（`# §01 "Title"`） |
+| 代码块语法高亮异常 | 检查代码块语言标注是否正确（` ```json `、` ```python ` 等），Typst 原生支持常见语言 |
+| 图片路径错误 | 确保图片路径为相对于项目根目录（如 `illustrations/img1.jpg`，非 `../illustrations/img1.jpg`） |
+| 版面风格参数错误 | 检查 layout.md 中的 `layout_style` 是否为 classic/modern/academic/minimal 之一 |
+| Typst 编译错误 | 使用 `--save-typ debug.typ` 保存源码，查看具体错误行；常见问题：Typst 语法不兼容（检查 typst 包版本） |
 
 ---
 
@@ -284,14 +313,18 @@ python3 scripts/booksmith-rl.py \
 ```
 你的任务：审查一本技术书的排版质量。
 
-检查项目（对照 layout.md 排版自检清单）：
-1. 所有图片是否居中且宽度一致？
-2. 表格是否 width: 100%？
-3. 分页是否合理（封面/目录/章节页）？
-4. 插图位置是否合理（不在表格/代码块附近）？
-5. 整体视觉是否干净统一？
+检查项目（对照 layout.md 排版规范）：
+1. 版面风格是否与书籍类型匹配？（技术书用 modern，文学用 classic）
+2. 代码块是否有背景色、圆角、语法高亮？行内代码是否与正文区分？
+3. 引用块/提示框是否有背景色或左边框样式？
+4. 列表项间距是否紧凑自然？
+5. heading 间距是否有层次（H1 > H2 > H3）？
+6. 所有图片是否居中且宽度一致？
+7. 表格是否 width: 100%，表头是否有背景色？
+8. 分页是否合理（封面/目录/章节页）？
+9. 整体视觉是否干净统一？
 
-输出：2-3 处具体修改建议（附原文和修改后 HTML）
+输出：2-3 处具体修改建议
 ```
 
 **主 Agent 综合两份报告，应用不冲突的改进，展示变更摘要请用户确认。**
@@ -373,6 +406,8 @@ python3 scripts/booksmith-rl.py \
 ---
 
 ## 章节字数目标（按出版风格）
+
+> 此表为写作时的字数控制基准。各风格的详细字数目标、代码占比、类比密度定义见 `references/style-guide.md` 对应风格章节。
 
 | 出版风格 | 单章目标字数 | 代码占比 | 类比/场景密度 |
 |---------|-----------|---------|------------|

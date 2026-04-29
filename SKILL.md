@@ -1,6 +1,6 @@
 ---
 name: booksmith
-version: 1.0.0
+version: 1.1.0
 description: |
   出版级技术书制作引擎——当用户想要创建一本技术书籍、手册、PDF 文档时使用。
   即使用户没有明确说"写书"，只要提到"帮我整理成文档""做个技术手册""出一本教程""把这些问题整理成册""我想把这些内容变成一本完整的书""写一本技术指南""做个操作手册""把知识沉淀成一本书"，都应触发本 Skill。
@@ -24,11 +24,13 @@ description: |
 | `references/style-guide.md` | 出版风格：O'Reilly/Academic/Handbook 三种风格模板 | 改写作风格时 |
 | `layout.md` | 排版规范：配色、字体、间距、对齐、分页、PDF 命令 | 改排版风格时 |
 | `illustration.md` | 插图规范：生图工具、风格模板、比例、压缩 | 改插图风格时 |
+| `references/typography-standards.md` | 排版参数行业标准参考：行距、段距、标题间距最佳实践 | 调整间距时 |
 | `references/examples.md` | 各 Phase 的 Input/Output 示例 | 改示例时 |
 | `references/extend-schema.md` | 偏好系统 JSON Schema 完整定义 | 改偏好字段时 |
+| `references/iron-rules.md` | 全局铁律：写作/排版/命名/调研铁律、禁止事项、已知陷阱、诚实边界 | 查阅规则时 |
 | `EXTEND.md` | Booksmith Extend 偏好系统 — 用户级跨项目偏好记忆 | 理解偏好机制时 |
 
-**执行时必须读取前 5 个文件。其余为开发调试用。**
+**执行时必须读取前 6 个文件。其余为开发调试用。**
 
 ## 总体流程
 
@@ -91,9 +93,11 @@ Phase 7  交付
 
 ```
 ~/Books/[english-slug]/
-├── project.json           # 项目参数
+├── project.json           # 项目参数（必须使用下方标准模板）
 ├── research/              # 调研产物
-├── manuscript/            # 逐章手稿
+├── manuscript/            # 逐章手稿（必须扁平结构，禁止子目录）
+│   ├── ch01.md            # 第一章
+│   ├── ch02.md            # 第二章
 │   └── glossary.md        # 术语追踪表
 ├── illustrations/         # 插图文件
 ├── anchor-sample.md       # 风格锚定样板（Phase 2 确认后生成）
@@ -101,23 +105,49 @@ Phase 7  交付
 ```
 
 > **命名规则**：目录名和文件名一律使用英文（kebab-case），如 `docker-basics`、`ch01.md`、`research/01-architecture.md`。正文内容使用中文不受此限制。
+>
+> **目录结构铁律**：
+> - `manuscript/` 必须是扁平结构，所有章节文件直接放在此目录下
+> - 禁止使用 `manuscript/phase-1/`、`manuscript/chapters/` 等子目录
+> - 章节文件命名：`ch01.md`、`ch02.md`...`ch10.md`、`appendix-a.md`
+> - 不遵循此结构将导致 PDF 生成失败
 
-**project.json 结构**：
+**project.json 结构**（必须严格遵循此模板，禁止自定义字段名）：
 
 ```json
 {
   "title": "书名",
+  "subtitle": "副标题",
+  "author": "作者名",
   "target_reader": "小白|有基础|专业人士",
   "style": "oreilly|academic|handbook|custom",
+  "layout_style": "modern",
   "chapters_planned": 12,
   "has_illustrations": false,
   "brand": { "name": "", "cta": "", "wechat": "", "website": "" },
   "status": "initialized",
   "created": "YYYY-MM-DD",
   "current_phase": 0,
-  "chapters_completed": []
+  "chapters_completed": [],
+  "delivered_pdf": "ebook.pdf"
 }
 ```
+
+> **字段约束**：
+> - `title`：必填，书籍主标题
+> - `subtitle`：可选，副标题
+> - `author`：可选，作者名
+> - `target_reader`：必填，目标读者群体描述
+> - `style`：必填，出版风格（oreilly / academic / handbook / custom）
+> - `layout_style`：可选，排版风格（classic / modern / academic / minimal），默认 modern。注意与 `style` 字段独立——写作风格和排版风格可以任意组合
+> - `chapters_planned`：必填，计划章节数
+> - `has_illustrations`：必填，是否有插图（true / false）
+> - `status`：必填，项目状态（initialized / researching / anchored / writing / reviewing / layouting / refining / completed）
+> - `current_phase`：必填，当前阶段（0-7）
+> - `chapters_completed`：必填，已完成章节列表（如 `["ch01","ch02"]`）
+> - `delivered_pdf`：可选，输出 PDF 文件名
+>
+> **禁止行为**：不得使用自定义字段名（如 `book_type`、`target_audience`、`estimated_length` 等），不得修改字段类型。
 
 ---
 
@@ -268,15 +298,27 @@ for each chapter in 大纲顺序:
 
 1. 格式优先检查（如手稿存在格式问题，提示用户是否要先格式化）
 2. 排版自检（对照 layout.md 排版规范）
-3. 如需插图：规划数量和位置 → 生成锚定图确认 → **prompt 先写入 `illustrations/prompts/`** → 批量生成 → 下载压缩
-4. **PDF 生成：调用 `scripts/booksmith-typst.py` 脚本**（Typst 排版引擎，原生 CJK，自动书签，单遍出 TOC）
+3. 选择版面风格：从 layout.md 读取 `layout_style`（classic / modern / academic / minimal），或用 `--style` 强制指定
+4. 如需插图：规划数量和位置 → 生成锚定图确认 → **prompt 先写入 `illustrations/prompts/`** → 批量生成 → 下载压缩
+5. **PDF 生成：调用 `scripts/booksmith-typst.py` 脚本**（Typst 排版引擎，原生 CJK，自动书签，单遍出 TOC）
    ```bash
+   # 默认风格（从 layout.md 读取）
    python3 scripts/booksmith-typst.py \
      ~/Books/[project-dir] --output [output-name].pdf
+
+   # 强制指定版面风格
+   python3 scripts/booksmith-typst.py \
+     ~/Books/[project-dir] --output [output-name].pdf --style modern
+
+   # 保存 .typ 源码用于调试
+   python3 scripts/booksmith-typst.py \
+     ~/Books/[project-dir] --save-typ debug.typ
    ```
    - 自动读取 `project.json` 获取书名
-   - 自动合并 `manuscript/*.md`（按 ch00-ch10 → appendix-a/b 排序）
-   - 解析 `layout.md` 提取配色、字号、边距作为样式源
+   - 自动合并 `manuscript/*.md`（按 ch01-chNN → appendix-a/b 排序）
+   - 解析 `layout.md` 提取配色、版面风格、字号、边距作为样式源
+   - 支持 4 种版面风格：classic（经典书籍）、modern（技术书默认）、academic（学术紧凑）、minimal（极简留白）
+   - 支持亮色/暗色代码主题（`code_theme: light | dark`）
    - Typst 原生 CJK 混排（无需字体候选表、无 CJK 检测 hack）
    - 生成封面 + 可点击 TOC（带页码）+ PDF 书签 + 页码
    - 若 Typst 不可用，回退到 `scripts/booksmith-rl.py`（ReportLab 版）
@@ -317,51 +359,7 @@ for each chapter in 大纲顺序:
 
 # 全局规则
 
-## 写作铁律
-
-- **逐章顺序写，不可并行**（质量优先于效率）
-- **风格锚定不可跳过**（必须先写样板章确认再批量写）
-- **上下文累积不可省略**（写第 N 章必须读前 N-1 章）
-- **独立验证不可跳过**（Phase 4 必须用子 agent 审查）
-- **质量验证迭代上限 2 次**（不无限打磨，标注薄弱项交付）
-
-## 排版铁律
-
-- 所有内容元素左右对齐，不允许宽度不一
-- 图片不超过正文区域宽度
-- 页脚只显示页码，不显示文件路径
-- 打印时保留背景色（tip 框、代码块、表头等）
-
-## 命名铁律
-
-- 目录名和文件名一律使用英文（kebab-case），如 `docker-basics/`、`ch01.md`、`01-architecture.md`
-- 正文内容使用中文不受此限制
-- 书名是中文时，目录名取英文译名或主题关键词的 kebab-case 形式
-
-## 调研铁律
-
-- 信源总数 ≥ 20，S/A ≥ 50%
-- 关键事实 ≥ 2 个独立信源交叉验证
-- 一手源优先：官方文档 > 原始论文 > 权威媒体 > 社区
-- 不使用百度百科、百度知道
-
-## 禁止事项
-
-### 内容层面
-- 不编造信源或引用（有就是有，没有就标注「待验证」）
-- 不将同一概念在不同章节完整重复展开（已定义的术语引用即可）
-- 不使用「众所周知」「显然」「毋庸置疑」等填充词
-- 不在章节末尾写「总结」然后用 bullet 重复正文内容
-- 不凭训练数据编造版本号、API 参数、配置项（不确定就标注）
-
-### 交互层面
-- 不在生成过程中向用户发过长的中间结果（每章只展示摘要）
-- 不跳过用户确认环节（除非用户明确说「直接做」）
-- 不在 Phase 3 写作中途停下来问用户「这一段 OK 吗？」（写完整章再展示）
-
-### 排版层面
-- 不使用花哨的渐变、阴影、多彩卡片
-- 不让章节标题孤行出现在页面底部
+详见 `references/iron-rules.md`（写作铁律、排版铁律、命名铁律、调研铁律、禁止事项、已知陷阱、诚实边界）。
 
 ## 断点续写机制
 
@@ -384,13 +382,4 @@ for each chapter in 大纲顺序:
 
 ---
 
-## 诚实边界
-
-本 Skill 的局限：
-- 生成的初稿质量取决于调研深度——调研不足则内容空洞
-- 代码示例只做逻辑检查，不保证实际可运行
-- 引用 URL 可能在生成后失效
-- 不替代专业审校和出版社的三审三校
-- 生成的 PDF 排版精度不如专业排版软件（InDesign 等）
-- 长文档（30+ 章）的上下文累积可能导致后期章节对前文细节记忆衰减
-- 断点续写时，恢复的上下文可能不如连续写作完整
+已知陷阱和诚实边界见 `references/iron-rules.md`。

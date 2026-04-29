@@ -373,15 +373,15 @@ sips --resampleWidth ${WIDTH} "input.png" \
 
 ```markdown
 <!-- 标准配图（80% 宽度） -->
-![人与 AI 协作编程的流程示意图](../illustrations/img1.jpg)
+![人与 AI 协作编程的流程示意图](illustrations/img1.jpg)
 
 <!-- 横幅图（100% 宽度） -->
-![火箭发射代表部署上线](../illustrations/img2.jpg){.banner}
+![火箭发射代表部署上线](illustrations/img2.jpg){.banner}
 ```
 
 Typst 转换器会将其转为 `#figure(image(...), caption: ...)` ，横幅图自动 100% 宽度。
 
-图片路径相对于手稿文件位置（`manuscript/chXX.md`），所以 `../illustrations/img1.jpg` 指向项目根目录下的 `illustrations/` 文件夹。
+图片路径相对于项目根目录（如 `illustrations/img1.jpg`）。Python 脚本编译时以项目目录为 `root`，自动解析路径。如手稿中误用了 `../illustrations/` 前缀，脚本会自动规范化。
 
 ### HTML 标签（旧方案，已弃用）
 

@@ -4,13 +4,13 @@
 
 ## 核心特性
 
-- **出版风格体系** — O'Reilly / Academic / Handbook 三种风格模板，风格锚定防漂移
+- **出版风格体系** — O'Reilly / Academic / Handbook 三种写作风格模板，风格锚定防漂移
 - **逐章顺序写作** — 上下文累积，确保叙事连贯递进（质量优先于效率）
 - **多 Agent 并行调研** — 4-5 个方向同时搜索，信源分级 + 交叉验证
 - **独立质量验证** — 子 agent 审查内容质量，不自我评估
 - **双 Agent 精炼** — 内容审查 + 排版审查并行，出版前最后一道关
 - **AI 插图生成** — MiniMax image-01 / GLM 图像生成 / Seedream API 三选一
-- **统一排版** — Typst 排版引擎，原生 CJK 混排，自动书签与目录
+- **统一排版引擎** — Typst 原生 CJK 混排，4 种版面风格可选（classic / modern / academic / minimal），自动书签与目录
 - **自包含项目** — 所有产物在一个目录内，可独立分发
 
 ## 流程
@@ -35,8 +35,11 @@ booksmith/
 ├── LICENSE                          # MIT License
 ├── README.md                        # 说明文档
 ├── SKILL.md                         # 主流程（Phase 0–7 + 1.5 检查点）
-├── layout.md                        # 排版规范（配色、字体、间距、页码）
+├── layout.md                        # 排版规范（配色、字体、间距、版面风格）
 ├── illustration.md                  # 插图规范（生图工具、风格模板、压缩）
+├── scripts/
+│   ├── booksmith-typst.py           # Typst 排版引擎（推荐）
+│   └── booksmith-rl.py              # ReportLab 排版引擎（回退）
 └── references/
     ├── style-guide.md               # 出版风格（O'Reilly/Academic/Handbook）
     ├── phase-instructions.md        # 各 Phase 详细执行指令和 Agent 模板
@@ -54,6 +57,9 @@ booksmith/
 ├── layout.md
 ├── illustration.md
 ├── EXTEND.md
+├── scripts/
+│   ├── booksmith-typst.py
+│   └── booksmith-rl.py
 └── references/
     ├── style-guide.md
     ├── phase-instructions.md
@@ -62,6 +68,19 @@ booksmith/
 ```
 
 > 直接将整个项目目录复制到 `~/.claude/skills/` 即可，无需挑选文件。
+
+## 依赖
+
+排版需要 Typst Python 绑定和 CJK 字体：
+
+```bash
+pip install typst
+```
+
+macOS 字体安装：
+```bash
+brew install font-noto-sans-cjk-sc font-noto-serif-cjk-sc font-jetbrains-mono
+```
 
 ## 使用
 
