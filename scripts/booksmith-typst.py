@@ -118,7 +118,7 @@ _STYLE_PRESETS: dict[str, StylePreset] = {
         h2_above=1.5,
         h2_below=1.0,
         h3_above=1.2,
-        h3_below=0.8,
+        h3_below=0.6,
         list_spacing=0.7,
         code_inset=10.0,
         code_radius=4.0,
@@ -148,7 +148,7 @@ _STYLE_PRESETS: dict[str, StylePreset] = {
         h2_above=1.2,
         h2_below=0.8,
         h3_above=1.0,
-        h3_below=0.6,
+        h3_below=0.5,
         list_spacing=0.5,
         code_inset=8.0,
         code_radius=2.0,
@@ -178,7 +178,7 @@ _STYLE_PRESETS: dict[str, StylePreset] = {
         h2_above=1.8,
         h2_below=1.0,
         h3_above=1.5,
-        h3_below=0.8,
+        h3_below=0.6,
         list_spacing=0.6,
         code_inset=12.0,
         code_radius=6.0,
@@ -293,9 +293,99 @@ def _parse_css_vars(text: str) -> dict:
     return colors
 
 
+def _parse_yaml_layout(text: str) -> StylePreset | None:
+    """Parse the `booksmith_layout:` YAML block from layout.md.
+
+    Returns a StylePreset with overrides applied, or None if block not found.
+    """
+    yaml_match = re.search(r"```ya?ml\n(.*?booksmith_layout:.*?)```", text, re.DOTALL)
+    if not yaml_match:
+        return None
+
+    yaml_text = yaml_match.group(1)
+    overrides: dict = {}
+
+    # Extract top-level scalar keys under booksmith_layout
+    # Parse layout_style and code_theme
+    m = re.search(r"layout_style:\s*(\w+)", yaml_text)
+    # These are read here but handled in caller (style selection)
+    if m:
+        overrides["_layout_style"] = m.group(1).lower()
+
+    m = re.search(r"code_theme:\s*(\w+)", yaml_text)
+    if m:
+        overrides["_code_theme"] = m.group(1).lower()
+
+    # Extract margins from margins: block
+    margin_m = re.search(
+        r"margins:\s*\n\s+top:\s*([\d.]+)\s*\n\s+right:\s*([\d.]+)\s*\n"
+        r"\s+bottom:\s*([\d.]+)\s*\n\s+left:\s*([\d.]+)", yaml_text
+    )
+    if margin_m:
+        overrides.update({
+            "page_margin_top": float(margin_m.group(1)),
+            "page_margin_right": float(margin_m.group(2)),
+            "page_margin_bottom": float(margin_m.group(3)),
+            "page_margin_left": float(margin_m.group(4)),
+        })
+
+    # Extract per-style overrides from styles.<name>: section
+    # Match: under "styles:" block, find "<style_name>:" section, then key-value pairs
+    styles_m = re.search(r"styles:\s*\n", yaml_text)
+    if styles_m:
+        style_block = yaml_text[styles_m.end():]
+        # Extract individual style sections
+        style_sections = re.split(r"\n    (\w+):\n", style_block)
+        # style_sections[0] is empty, then alternating [name, content]
+        for i in range(1, len(style_sections), 2):
+            style_name = style_sections[i].strip()
+            if i + 1 < len(style_sections):
+                content = style_sections[i + 1]
+                if style_name == "modern":
+                    # Parse key: value pairs from this section
+                    for cm in re.finditer(r"(\w+):\s*([^\n]+)", content):
+                        key = cm.group(1).strip()
+                        val = cm.group(2).strip().strip('"').strip("'")
+                        # Skip font keys (not in StylePreset) and internal keys
+                        if key in ("body_font", "heading_font", "code_font",
+                                   "quote_left_border", "quote_background"):
+                            continue
+                        if key in ("first_line_indent",):
+                            overrides[key] = val
+                        else:
+                            try:
+                                overrides[key] = float(val)
+                            except ValueError:
+                                pass
+
+    # Apply overrides to the correct style preset
+    style_name = overrides.pop("_layout_style", "modern")
+    if style_name not in _STYLE_PRESETS:
+        print(f"Warning: Unknown style '{style_name}', using 'modern'", file=sys.stderr)
+        style_name = "modern"
+
+    preset = _STYLE_PRESETS[style_name]
+    # Filter to only valid StylePreset fields
+    valid_keys = {f.name for f in StylePreset.__dataclass_fields__.values()}
+    filtered = {k: v for k, v in overrides.items() if k in valid_keys}
+    if filtered:
+        preset = _override_preset(preset, filtered)
+
+    return preset
+
+
 def _parse_style_preset(text: str, colors: dict) -> StylePreset:
-    """Extract layout style preset from layout.md."""
-    # Look for layout_style: xxx in YAML-like blocks
+    """Extract layout style preset from layout.md.
+
+    Primary: reads from the `booksmith_layout` YAML code block.
+    Fallback: legacy regex parsing for natural language format (deprecated).
+    """
+    # Try YAML block first
+    yaml_preset = _parse_yaml_layout(text)
+    if yaml_preset is not None:
+        return yaml_preset
+
+    # Fallback: legacy regex-based parsing (for old layout.md files)
     style_match = re.search(r"layout_style[:\s]+(\w+)", text, re.I)
     style_name = style_match.group(1).lower() if style_match else "modern"
 
@@ -305,8 +395,7 @@ def _parse_style_preset(text: str, colors: dict) -> StylePreset:
 
     preset = _STYLE_PRESETS[style_name]
 
-    # Allow layout.md to override individual parameters
-    # Parse margin overrides
+    # Allow layout.md to override individual parameters (legacy format)
     margin_m = re.search(
         r"margin:\s*([\d.]+)cm\s*([\d.]+)cm\s*([\d.]+)cm\s*([\d.]+)cm", text
     )
@@ -319,18 +408,14 @@ def _parse_style_preset(text: str, colors: dict) -> StylePreset:
             "page_margin_left": margins[3],
         })
 
-    # Parse body size override
     pt_match = re.search(r"正文.*?(\d+(?:\.\d+)?)\s*pt", text)
     if pt_match:
         preset = _override_preset(preset, {"body_size": float(pt_match.group(1))})
 
-    # Parse leading override
     leading_m = re.search(r"正文行高[：:]\s*([\d.]+)", text)
     if leading_m:
         preset = _override_preset(preset, {"leading": float(leading_m.group(1))})
 
-    # Parse heading spacing overrides
-    # H1
     h1_above_m = re.search(r"H1[\s_]?上方间距[：:]\s*([\d.]+)", text, re.I)
     if h1_above_m:
         preset = _override_preset(preset, {"h1_above": float(h1_above_m.group(1))})
@@ -338,7 +423,6 @@ def _parse_style_preset(text: str, colors: dict) -> StylePreset:
     if h1_below_m:
         preset = _override_preset(preset, {"h1_below": float(h1_below_m.group(1))})
 
-    # H2
     h2_above_m = re.search(r"H2[\s_]?上方间距[：:]\s*([\d.]+)", text, re.I)
     if h2_above_m:
         preset = _override_preset(preset, {"h2_above": float(h2_above_m.group(1))})
@@ -346,7 +430,6 @@ def _parse_style_preset(text: str, colors: dict) -> StylePreset:
     if h2_below_m:
         preset = _override_preset(preset, {"h2_below": float(h2_below_m.group(1))})
 
-    # H3
     h3_above_m = re.search(r"H3[\s_]?上方间距[：:]\s*([\d.]+)", text, re.I)
     if h3_above_m:
         preset = _override_preset(preset, {"h3_above": float(h3_above_m.group(1))})
@@ -354,7 +437,6 @@ def _parse_style_preset(text: str, colors: dict) -> StylePreset:
     if h3_below_m:
         preset = _override_preset(preset, {"h3_below": float(h3_below_m.group(1))})
 
-    # Parse list spacing override
     list_spacing_m = re.search(r"列表项间距[：:]\s*([\d.]+)", text)
     if list_spacing_m:
         preset = _override_preset(preset, {"list_spacing": float(list_spacing_m.group(1))})
@@ -363,6 +445,14 @@ def _parse_style_preset(text: str, colors: dict) -> StylePreset:
 
 
 def _parse_code_theme(text: str) -> str:
+    # Try YAML block first
+    yaml_match = re.search(r"```ya?ml\n(.*?booksmith_layout:.*?)```", text, re.DOTALL)
+    if yaml_match:
+        m = re.search(r"code_theme:\s*(\w+)", yaml_match.group(1))
+        if m:
+            theme = m.group(1).lower()
+            return theme if theme in ("light", "dark") else "light"
+    # Fallback: legacy format
     m = re.search(r"code_theme[:\s]+(\w+)", text, re.I)
     theme = m.group(1).lower() if m else "light"
     return theme if theme in ("light", "dark") else "light"

@@ -44,7 +44,9 @@ booksmith/
     ├── style-guide.md               # 出版风格（O'Reilly/Academic/Handbook）
     ├── phase-instructions.md        # 各 Phase 详细执行指令和 Agent 模板
     ├── examples.md                  # 关键 Phase 的 Input/Output 示例
-    └── extend-schema.md             # 偏好系统 JSON Schema 完整定义
+    ├── extend-schema.md             # 偏好系统 JSON Schema 完整定义
+    ├── iron-rules.md                # 全局铁律和已知陷阱
+    └── typography-standards.md      # 排版参数行业标准参考
 ```
 
 ## 安装
@@ -114,6 +116,24 @@ brew install font-noto-sans-cjk-sc font-noto-serif-cjk-sc font-jetbrains-mono
 |------|----------|
 | [nuwa-skill](https://github.com/alchaincyf/nuwa-skill) | 阶段间 Review 检查点、独立质量验证（子 agent 审查非自我评估）、双 Agent 精炼、自包含项目目录 |
 | [darwin-skill](https://github.com/alchaincyf/darwin-skill) | 棘轮思维（质量不达标则迭代，上限 2 次，不无限打磨） |
+
+## 排版参数配置
+
+排版参数通过 `layout.md` 中的 `booksmith_layout` YAML 代码块配置。排版脚本优先解析此 YAML 块，而非自然语言文本。
+
+```yaml
+booksmith_layout:
+  layout_style: modern   # classic | modern | academic | minimal
+  code_theme: light      # light | dark
+
+  margins:
+    top: 22              # mm
+    right: 20            # mm
+    bottom: 28           # mm
+    left: 20             # mm
+```
+
+在书籍项目的 `layout.md` 中，只需复制上面的 YAML 块并修改参数即可。未指定的参数仍使用默认值。详见 `layout.md` 的完整参数表。
 
 ## 安全说明
 
