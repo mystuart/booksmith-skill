@@ -1,16 +1,16 @@
 ---
 name: booksmith
-version: 1.1.0
+version: 1.2.0
 description: |
   出版级技术书制作引擎——当用户想要创建一本技术书籍、手册、PDF 文档时使用。
   即使用户没有明确说"写书"，只要提到"帮我整理成文档""做个技术手册""出一本教程""把这些问题整理成册""我想把这些内容变成一本完整的书""写一本技术指南""做个操作手册""把知识沉淀成一本书"，都应触发本 Skill。
-  支持多 Agent 并行调研、风格锚定、逐章顺序写作（上下文累积）、独立质量验证、双 Agent 精炼、排版出 PDF。
+  支持多 Agent 并行调研、风格锚定、逐章顺序写作（上下文累积）、达尔文进化质量验证（种群进化 + trainable/holdout 分割）、双 Agent 精炼、排版出 PDF。
   触发词：「写本书」「出本书」「做本电子书」「ebook」「写个小册子」「做个手册」「技术书」「帮我写一本」「出版级」「写技术书」「整理成书」「做个教程」「出一本教程」「把内容整理成册」「技术指南」「操作手册」
 ---
 
 # Booksmith — 出版级技术书制作引擎
 
-> 借鉴 nuwa 的人物蒸馏方法论和 darwin 的质量进化机制，将写书拆解为可验证的分阶段流水线。
+> 借鉴 darwinian-evolver 的达尔文进化机制和 Phase 间的独立验证，将写书拆解为可验证的分阶段流水线。
 > 核心理念：**调研先行 → 风格锚定 → 逐章递进 → 独立验证 → 精炼交付**
 
 ## 配置文件
@@ -29,6 +29,7 @@ description: |
 | `references/extend-schema.md` | 偏好系统 JSON Schema 完整定义 | 改偏好字段时 |
 | `references/iron-rules.md` | 全局铁律：写作/排版/命名/调研铁律、禁止事项、已知陷阱、诚实边界 | 查阅规则时 |
 | `EXTEND.md` | Booksmith Extend 偏好系统 — 用户级跨项目偏好记忆 | 理解偏好机制时 |
+| `cache/darwinian-evolver/` | DarwinianEvolver 上游克隆（达尔文进化引擎） | Phase 4 进化写作时 |
 
 **执行时必须读取前 6 个文件。其余为开发调试用。**
 
@@ -253,31 +254,106 @@ for each chapter in 大纲顺序:
 
 ---
 
-# Phase 4：质量验证
+# Phase 4：质量验证（达尔文进化）
 
 详见 `references/phase-instructions.md` — 「Phase 4 质量验证详细指令」。
 
-**借鉴 nuwa Phase 4 的独立验证机制。**
+**借鉴 darwinian-evolver 的达尔文进化机制。**
 
-## 执行流程
+Phase 4 不再是两轮"主 agent 检查 + 不通过就重写"的硬判断，而是**章节种群进化**——每章维护一个种群，最优个体持续进化，过拟合由 holdout 机制检测。
 
-1. **结构一致性检查**（主 agent）：风格、术语、交叉引用
-2. **独立质量审查**（spawn 子 agent）：可读性、技术准确性、叙事连贯性、风格一致性、引用质量
-3. **通过/不通过判定**（见下方标准）
+## 核心概念
 
-## 通过标准
+| 概念 | 含义 |
+|------|------|
+| **Organism** | 一章手稿（原始 markdown 字符串） |
+| **Population** | 某章的所有进化个体，等权采样父本 |
+| **Evaluator** | 质量评分器：split into trainable / holdout failure cases |
+| **Mutator** | LLM 读取 failure cases → 提出改进章节 |
+| **Trainable FC** | 暴露给 Mutator 的质量问题 |
+| **Holdout FC** | 保留不暴露，用于检测过拟合 |
+| **Fitness score** | 加权多维质量分（0–1，越高越好） |
 
-| 检查项 | 通过标准 | 不通过信号 |
-|--------|---------|-----------|
-| 风格一致性 | 与锚定样板结构一致 | 出现样板中没有的板块或缺失 |
-| 术语统一 | 同一概念全书使用同一术语 | 同一概念出现 2+ 种叫法 |
-| 叙事递进 | 每章在前一章基础上深化 | 章节可随意重排顺序而不影响理解 |
-| 信源覆盖 | 关键论点 ≥80% 有引用 | 核心论点凭空出现无支撑 |
-| 重复率 | 章节间重复内容 < 5% | 同一概念跨章重复完整展开 |
+## 质量维度与权重
 
-**通过** → Phase 5。
-**不通过** → 标注薄弱章节 → 回到 Phase 3 迭代（上限 2 次）。
-迭代 2 次后仍有不通过项 → 在工作报告中标注薄弱维度，**继续交付**。
+| 维度 | 权重 | 含义 |
+|------|------|------|
+| 可读性 | 25% | 段落长度、CJK 密度、碎片化程度 |
+| 技术准确性 | 25% | 代码示例、数据表格、数值支撑 |
+| 叙事递进 | 20% | 过渡句密度、章末承启、孤儿句比例 |
+| 风格一致性 | 15% | Tip/Warning 框、场景开头、无风格违规 |
+| 引用质量 | 15% | URL 引用、来源标注 |
+
+## 执行流程（每章）
+
+```
+for each chapter in 大纲顺序:
+
+  1. 初始化种群
+     将 Phase 3 写出的手稿作为初始 Organism（score=0.6 基准）
+     其余父本通过 Mutator 并发生成 N-1 个变异体
+
+  2. 进化循环（5 次迭代，可配置）
+     for iter in 1..N:
+       a. 加权采样选择父本（sigmoid 性能 × 多样性奖励）
+       b. Mutator 并发产生变异体（每父本 1–2 个）
+       c. Evaluator 并发评分（trainable + holdout failure cases）
+       d. 所有个体加入种群
+
+  3. 过拟合检测
+     若 holdout failure cases 比例 > 40%，说明 Mutator 在过拟合 trainable
+     → 降低 trainable 暴露比例，增加随机父本选择权重
+
+  4. 选取最优个体
+     取种群中 fitness 最高的 Organism 作为本章最终手稿
+     记录进化日志（iteration、score、change_summary）
+
+  5. 汇总全书的分数分布
+     输出：每章最优分、全书中位数、方差
+     用于决定进入 Phase 5 或返回 Phase 3 定向补充
+```
+
+## 通过标准（进化视角）
+
+| 信号 | 含义 | 处理 |
+|------|------|------|
+| 全书中位分 ≥ 0.70 | 整体质量达标 | → Phase 5 |
+| 任意章最优分 < 0.50 | 该章存在严重缺陷 | 定向回到 Phase 3 重写该章 |
+| holdout 失败率 > 40% | 过拟合信号 | 减少 trainable 暴露，继续进化 |
+| 迭代 5 次后中位分无提升（Δ < 0.02） | 进化收敛 | 停止，在工作报告中标注该章薄弱 |
+
+**继续交付条件**：至少 70% 的章节中位分 ≥ 0.60。
+其余章节在工作报告中标注薄弱维度，不阻塞交付。
+
+## 达尔文进化脚本
+
+```bash
+# 安装（一次性）
+mkdir -p ~/.claude/skills/booksmith/cache/darwinian-evolver
+cd ~/.claude/skills/booksmith/cache/darwinian-evolver
+git clone --depth 1 https://github.com/imbue-ai/darwinian_evolver.git .
+
+# 运行单章进化
+cd ~/.claude/skills/booksmith/cache/darwinian-evolver/darwinian_evolver
+ANTHROPIC_API_KEY=... uv run --with anthropic python \\
+    ~/.claude/skills/booksmith/scripts/booksmith_chapter_evolver.py \\
+    --chapter_path ~/Books/[project]/manuscript/ch05.md \\
+    --anchor_sample_path ~/Books/[project]/anchor-sample.md \\
+    --glossary_path ~/Books/[project]/manuscript/glossary.md \\
+    --target_reader 有基础 \\
+    --output_dir /tmp/ch05_evolve \\
+    --num_iterations 5 --num_parents_per_iteration 4 \\
+    --mutator_concurrency 4 --evaluator_concurrency 4
+
+# 查看快照
+uv run --with openai python \\
+    ~/.claude/skills/booksmith/scripts/show_snapshot.py \\
+    /tmp/ch05_evolve/snapshots/iteration_5.pkl
+```
+
+> **脚本依赖**：`scripts/booksmith_chapter_evolver.py` 实现 `Organism/Evaluator/Mutator` 接口，
+> 调用 `EvolveProblemLoop` 驱动达尔文进化。AGPL-3.0 许可，只在用户本地运行，不上传任何数据。
+> 上游 darwinian-evolver 克隆在 `cache/darwinian-evolver/`。
 
 ---
 
